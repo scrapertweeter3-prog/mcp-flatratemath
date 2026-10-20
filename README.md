@@ -1,3 +1,5 @@
+[![Flat Rate Math MCP server](https://mcprush.com/badge/flat-rate-math-mcp/card.svg)](https://mcprush.com/to/flat-rate-math-mcp?ref=badge)
+
 # flatratemath MCP server
 
 A Model Context Protocol server that prices three ways of paying for
