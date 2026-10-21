@@ -1,0 +1,16 @@
+{
+  "$schema": "https://docs.page/schema.json",
+  "name": "flatratemath",
+  "description": "A Model Context Protocol server that prices three ways of paying for software work on one number: total cost per delivered request.",
+  "sidebar": [
+    {
+      "group": "Guide",
+      "pages": [
+        {
+          "title": "Overview",
+          "href": "/"
+        }
+      ]
+    }
+  ]
+}
