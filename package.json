@@ -1,0 +1,8 @@
+{
+  "name": "mcp-flatratemath",
+  "version": "0.1.0",
+  "description": "Stdio MCP server that prices fixed bids, hires, and flat subscriptions as cost per delivered request",
+  "license": "MIT",
+  "repository": "https://github.com/scrapertweeter3-prog/mcp-flatratemath",
+  "homepage": "https://www.poketdev.com"
+}
