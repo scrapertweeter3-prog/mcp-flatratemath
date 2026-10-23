@@ -115,6 +115,12 @@ def one_lane(name, lane):
     rate = float(lane["rate"])
     months = int(lane.get("months", 1))
     requests = int(lane.get("requests", 1))
+    if rate < 0:
+        raise ValueError("rate must not be negative")
+    if months < 1:
+        raise ValueError("months must be at least 1")
+    if requests < 1:
+        raise ValueError("requests must be at least 1")
     if mode == "bid":
         total, per = lane_costs(bid=rate, months=months, requests=requests)
     elif mode in ("salary", "flat"):
