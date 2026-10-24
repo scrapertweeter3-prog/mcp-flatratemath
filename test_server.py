@@ -1,6 +1,33 @@
+import io
+import json
+import subprocess
+import sys
+import types
 import unittest
+from pathlib import Path
 
+import server
 from server import handle
+
+SERVER = Path(__file__).with_name("server.py")
+
+
+def frame(payload):
+    """One stdio frame: a Content-Length header followed by the body bytes."""
+    return b"Content-Length: %d\r\n\r\n" % len(payload) + payload
+
+
+def responses(raw):
+    """Decode every Content-Length framed message a server run wrote out."""
+    messages = []
+    while raw:
+        header, separator, rest = raw.partition(b"\r\n\r\n")
+        if not separator:
+            break
+        length = int(header.split(b":", 1)[1])
+        messages.append(json.loads(rest[:length]))
+        raw = rest[length:]
+    return messages
 
 
 class CostPerRequestValidationTests(unittest.TestCase):
@@ -31,6 +58,64 @@ class CostPerRequestValidationTests(unittest.TestCase):
 
         self.assertTrue(response["result"]["isError"])
         self.assertIn("requests must be at least 1", response["result"]["content"][0]["text"])
+
+
+class MalformedFrameTests(unittest.TestCase):
+    def _read(self, raw):
+        """Drive read_message() over raw bytes standing in for stdin."""
+        original = sys.stdin
+        sys.stdin = types.SimpleNamespace(buffer=io.BytesIO(raw))
+        try:
+            return server.read_message()
+        finally:
+            sys.stdin = original
+
+    def _run(self, raw):
+        """Run the server as a client would: framed bytes in, framed bytes out."""
+        return subprocess.run(
+            [sys.executable, str(SERVER)], input=raw, capture_output=True, timeout=30
+        )
+
+    def test_read_message_reports_a_malformed_body(self):
+        with self.assertRaises(server.ParseError):
+            self._read(frame(b"{oops"))
+
+    def test_read_message_reports_a_body_that_is_not_utf8(self):
+        with self.assertRaises(server.ParseError):
+            self._read(frame(b'"\xff\xfe"'))
+
+    def test_bad_frame_gets_a_parse_error_and_the_session_survives(self):
+        raw = frame(b"{oops") + frame(b'{"jsonrpc": "2.0", "id": 2, "method": "ping"}')
+
+        result = self._run(raw)
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertEqual(
+            responses(result.stdout),
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "Parse error"},
+                },
+                {"jsonrpc": "2.0", "id": 2, "result": {}},
+            ],
+        )
+
+    def test_truncated_body_is_answered_before_the_stream_ends(self):
+        result = self._run(b'Content-Length: 40\r\n\r\n{"jsonrpc": "2.0"')
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertEqual(
+            responses(result.stdout),
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "Parse error"},
+                }
+            ],
+        )
 
 
 if __name__ == "__main__":
