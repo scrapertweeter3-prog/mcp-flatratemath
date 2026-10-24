@@ -87,6 +87,10 @@ TOOLS = [
 ]
 
 
+class ParseError(Exception):
+    """A frame body that is not valid JSON, so no request can be built from it."""
+
+
 def read_message():
     length = None
     while True:
@@ -100,7 +104,11 @@ def read_message():
             length = int(value.strip())
     if not length:
         return None
-    return json.loads(sys.stdin.buffer.read(length).decode("utf-8"))
+    body = sys.stdin.buffer.read(length)
+    try:
+        return json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ParseError("frame body is not valid JSON")
 
 
 def send(msg):
@@ -181,7 +189,12 @@ def handle(req):
 
 def main():
     while True:
-        req = read_message()
+        try:
+            req = read_message()
+        except ParseError:
+            send({"jsonrpc": "2.0", "id": None,
+                  "error": {"code": -32700, "message": "Parse error"}})
+            continue
         if req is None:
             return 0
         resp = handle(req)
