@@ -87,11 +87,17 @@ TOOLS = [
 ]
 
 
+class ParseError(Exception):
+    """A frame body that is not valid JSON, so no request can be built from it."""
+
+
 def read_message():
     """Read one JSON-RPC message: one JSON object per line (MCP stdio).
 
     Tolerates LSP-style Content-Length headers for hand testing but never
-    requires them: a line that parses as JSON is the message.
+    requires them: a line that parses as JSON is the message. A line that is
+    neither framing nor JSON raises :class:`ParseError`, so the caller can
+    answer it instead of dropping the message and leaving the client waiting.
     """
     while True:
         line = sys.stdin.buffer.readline()
@@ -105,7 +111,7 @@ def read_message():
         try:
             return json.loads(stripped.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
-            continue
+            raise ParseError("frame body is not valid JSON") from None
 
 
 def send(msg):
@@ -185,7 +191,12 @@ def handle(req):
 
 def main():
     while True:
-        req = read_message()
+        try:
+            req = read_message()
+        except ParseError:
+            send({"jsonrpc": "2.0", "id": None,
+                  "error": {"code": -32700, "message": "Parse error"}})
+            continue
         if req is None:
             return 0
         resp = handle(req)
