@@ -88,25 +88,29 @@ TOOLS = [
 
 
 def read_message():
-    length = None
+    """Read one JSON-RPC message: one JSON object per line (MCP stdio).
+
+    Tolerates LSP-style Content-Length headers for hand testing but never
+    requires them: a line that parses as JSON is the message.
+    """
     while True:
         line = sys.stdin.buffer.readline()
         if not line:
             return None
-        if line in (b"\r\n", b"\n"):
-            break
-        name, _, value = line.decode("ascii", "replace").partition(":")
-        if name.strip().lower() == "content-length":
-            length = int(value.strip())
-    if not length:
-        return None
-    return json.loads(sys.stdin.buffer.read(length).decode("utf-8"))
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.lower().startswith(b"content-length:"):
+            continue
+        try:
+            return json.loads(stripped.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            continue
 
 
 def send(msg):
-    data = json.dumps(msg).encode("utf-8")
-    sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n" % len(data))
-    sys.stdout.buffer.write(data)
+    data = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+    sys.stdout.buffer.write(data + b"\n")
     sys.stdout.buffer.flush()
 
 

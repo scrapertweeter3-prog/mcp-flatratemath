@@ -36,7 +36,8 @@ Clone the repo and point your MCP client at the file:
 
 Client command: `python3 /path/to/mcp-flatratemath/server.py`
 
-The wire side is JSON-RPC 2.0 over stdio with Content-Length framing.
+The wire side is JSON-RPC 2.0 over stdio, one JSON object per line
+(newline-delimited JSON, the MCP stdio transport).
 Handshakes answered: initialize, ping, tools/list, tools/call.
 
 ## License
